@@ -11,7 +11,7 @@ Welcome to the **Mystery Box Store** – an exciting e-commerce experience where
 
 Your project is live at:
 
-🔗 **[https://vercel.com/arij-chowdhurys-projects/mystery-box-store](https://vercel.com/arij-chowdhurys-projects/mystery-box-store)**
+🔗 **[https://mystery-boxes-ashen.vercel.app](https://mystery-boxes-ashen.vercel.app)**
 
 ---
 
