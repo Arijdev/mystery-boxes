@@ -14,10 +14,16 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const response = await fetch("/api/orders?userId=guest-user")
+        const response = await fetch("/api/orders", {
+          method: "GET",
+          credentials: "include", // ensures cookies (like JWT) are sent
+        })
+
         if (response.ok) {
           const result = await response.json()
           setOrders(result.orders)
+        } else {
+          console.error("Failed to fetch orders: HTTP", response.status)
         }
       } catch (error) {
         console.error("Failed to fetch orders:", error)
@@ -105,11 +111,11 @@ export default function OrdersPage() {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <Card key={order.id} className="bg-black/40 border-white/10 backdrop-blur-sm">
+            <Card key={order._id} className="bg-black/40 border-white/10 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-white">{order.id}</CardTitle>
+                    <CardTitle className="text-white">{order._id}</CardTitle>
                     <CardDescription className="text-gray-300">
                       Ordered on {new Date(order.createdAt).toLocaleDateString("en-IN")}
                     </CardDescription>
@@ -132,7 +138,11 @@ export default function OrdersPage() {
                     >
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center">
-                          <Package className="h-6 w-6 text-purple-400" />
+                          <img
+                            src={item.image || "/mystery.png"}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <div>
                           <div className="text-white font-medium">{item.name}</div>
@@ -149,7 +159,7 @@ export default function OrdersPage() {
                     variant="outline"
                     className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white bg-transparent"
                   >
-                    <Link href={`/order-details/${order.id}`}>
+                    <Link href={`/order-details/${order._id}`}>
                       <Eye className="h-4 w-4 mr-2" />
                       View Details
                     </Link>

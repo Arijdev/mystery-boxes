@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Package, Eye, EyeOff, Loader2, Mail, Lock, User, Phone } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { authService } from "@/lib/auth"
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -30,7 +29,10 @@ export default function SignUpPage() {
   const router = useRouter()
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   const validateForm = () => {
@@ -75,14 +77,14 @@ export default function SignUpPage() {
       return false
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match.",
-        variant: "destructive",
-      })
-      return false
-    }
+    // if (formData.password !== formData.confirmPassword) {
+    //   toast({
+    //     title: "Password Mismatch",
+    //     description: "Passwords do not match.",
+    //     variant: "destructive",
+    //   })
+    //   return false
+    // }
 
     if (!acceptTerms) {
       toast({
@@ -100,40 +102,46 @@ export default function SignUpPage() {
     e.preventDefault()
 
     if (!validateForm()) return
-
     setIsLoading(true)
 
+    console.log("Sending formData:", formData)
+
     try {
-      const result = await authService.signUp({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
       })
 
-      if (result.success && result.user) {
+      const data = await res.json()
+
+      if (res.ok && data?.user) {
         toast({
           title: "Account Created!",
-          description: `Welcome to MysteryVault, ${result.user.name}!`,
+          description: `Welcome, ${data.user.name}`,
         })
-        router.push("/")
+
+        router.push("/auth/signin")
       } else {
         toast({
           title: "Sign Up Failed",
-          description: result.error || "Failed to create account. Please try again.",
+          description: data?.error || "Could not create account.",
           variant: "destructive",
         })
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: "Network Error",
+        description: "Please try again later.",
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
     }
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
@@ -265,10 +273,12 @@ export default function SignUpPage() {
                 <Checkbox
                   id="terms"
                   checked={acceptTerms}
-                  onCheckedChange={setAcceptTerms}
+                  onCheckedChange={(checked) => setAcceptTerms(!!checked)} // ✅ fix
                   className="border-white/20 data-[state=checked]:bg-purple-600"
                   disabled={isLoading}
                 />
+
+
                 <Label htmlFor="terms" className="text-sm text-gray-300">
                   I agree to the{" "}
                   <Link href="/terms" className="text-purple-400 hover:text-purple-300">
@@ -296,7 +306,6 @@ export default function SignUpPage() {
                 )}
               </Button>
             </form>
-
             <div className="mt-6 text-center">
               <p className="text-gray-300">
                 Already have an account?{" "}

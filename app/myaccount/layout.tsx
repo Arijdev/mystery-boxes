@@ -61,11 +61,10 @@ export default function MyAccountLayout({
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                          isActive
-                            ? "bg-purple-600 text-white"
-                            : "text-gray-300 hover:bg-purple-600/20 hover:text-white"
-                        }`}
+                        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                          ? "bg-purple-600 text-white"
+                          : "text-gray-300 hover:bg-purple-600/20 hover:text-white"
+                          }`}
                       >
                         <Icon className="h-5 w-5" />
                         <span>{item.label}</span>

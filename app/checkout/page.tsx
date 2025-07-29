@@ -14,6 +14,7 @@ import { Package, ArrowLeft, CreditCard, Smartphone, Building, Truck, MapPin, Lo
 import { useToast } from "@/hooks/use-toast"
 
 export default function CheckoutPage() {
+  const [cartItems, setCartItems] = useState<any[]>([])
   const [orderSummary, setOrderSummary] = useState<any>(null)
   const [paymentMethod, setPaymentMethod] = useState("card")
   const [isProcessing, setIsProcessing] = useState(false)
@@ -150,6 +151,30 @@ export default function CheckoutPage() {
     return true
   }
 
+  const removeItem = async (id: number) => {
+    try {
+      const res = await fetch("/api/cart", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ itemId: id }),
+      })
+
+      if (!res.ok) throw new Error("Failed to remove item")
+
+      const item = cartItems.find((item) => item.id === id)
+      setCartItems(cartItems.filter((item) => item.id !== id))
+
+      toast({
+        title: "Item Removed",
+        description: `${item?.name} has been removed from your cart.`,
+      })
+    } catch (error) {
+      console.error("Error removing item from cart:", error)
+    }
+  }
+
   const placeOrder = async () => {
     if (!validateForm()) return
 
@@ -183,7 +208,10 @@ export default function CheckoutPage() {
       }
 
       // Clear cart and order summary
-      localStorage.removeItem("cart")
+
+      for (const id of cartItems.map((item) => item.id)) {
+        await removeItem(id)
+      }
       localStorage.removeItem("orderSummary")
 
       toast({

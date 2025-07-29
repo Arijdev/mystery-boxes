@@ -12,6 +12,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
+    "baseUrl": ".",
+    
     "incremental": true,
     "plugins": [
       {
@@ -22,6 +24,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/checkout/page.jsx", "app/api/signup/route.ts", "app/lib/middleware/auth.ts"],
   "exclude": ["node_modules"]
 }

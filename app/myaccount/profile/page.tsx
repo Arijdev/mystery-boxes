@@ -48,53 +48,62 @@ export default function ProfilePage() {
   const [originalProfile, setOriginalProfile] = useState(profile)
 
   useEffect(() => {
-    const currentUser = authService.getCurrentUser()
-    if (!currentUser) {
-      router.push("/auth/signin")
-      return
-    }
-    setUser(currentUser)
+    const fetchUser = async () => {
+      const currentUser = await authService.getCurrentUser()
+      if (!currentUser) {
+        router.push("/auth/signin")
+        return
+      }
+      setUser(currentUser)
 
-    // Initialize currency
-    const userCurrency = currencyService.getUserCurrency()
-    setCurrentCurrency(userCurrency)
+      const addresResult = await authService.getAddress()
+      let addressResult = addresResult.success ? addresResult.address : {};
 
-    // Listen for currency changes
-    const handleCurrencyChange = (event: CustomEvent) => {
-      setCurrentCurrency(event.detail)
-      setProfile((prev) => ({ ...prev, currency: event.detail }))
-    }
+      // Initialize currency
+      const userCurrency = currencyService.getUserCurrency()
+      setCurrentCurrency(userCurrency)
 
-    window.addEventListener("currencyChange", handleCurrencyChange as EventListener)
-
-    // Load login history
-    loadLoginHistory(currentUser.id)
-
-    // Calculate account statistics
-    calculateAccountStats(currentUser.id).then((stats) => {
-      const profileData = {
-        name: currentUser.name || "",
-        email: currentUser.email || "",
-        phone: currentUser.phone || "",
-        address: currentUser.address || "",
-        city: currentUser.city || "",
-        state: currentUser.state || "",
-        pincode: currentUser.pincode || "",
-        landmark: currentUser.landmark || "",
-        profilePhoto: currentUser.profilePhoto || "",
-        currency: userCurrency,
-        joinDate: new Date(currentUser.createdAt).toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
-        ...stats,
+      // Listen for currency changes
+      const handleCurrencyChange = (event: CustomEvent) => {
+        setCurrentCurrency(event.detail)
+        setProfile((prev) => ({ ...prev, currency: event.detail }))
       }
 
-      setProfile(profileData)
-      setOriginalProfile(profileData)
-      setLoading(false)
-    })
+      window.addEventListener("currencyChange", handleCurrencyChange as EventListener)
 
-    return () => {
-      window.removeEventListener("currencyChange", handleCurrencyChange as EventListener)
+      // Load login history
+      loadLoginHistory(currentUser.id)
+
+      // Calculate account statistics
+      calculateAccountStats(currentUser.id).then((stats) => {
+        const profileData = {
+          name: currentUser.name || "",
+          email: currentUser.email || "",
+          phone: currentUser.phoneNo || "",
+          address: addressResult.address || "",
+          city: addressResult.city || "",
+          state: addressResult.state || "",
+          pincode: addressResult.pincode || "",
+          landmark: addressResult.landmark || "",
+          profilePhoto: currentUser.photo || "",
+          currency: userCurrency,
+          joinDate: new Date(currentUser.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+          ...stats,
+        }
+
+        setProfile(profileData)
+        setOriginalProfile(profileData)
+        setLoading(false)
+      })
+
+      // Cleanup
+      return () => {
+        window.removeEventListener("currencyChange", handleCurrencyChange as EventListener)
+      }
     }
+
+    fetchUser()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   const loadLoginHistory = async (userId: string) => {
@@ -108,7 +117,7 @@ export default function ProfilePage() {
           os: "Windows 11",
           location: "Nadia, West Bengal, India",
           ip: "203.192.xxx.xxx",
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+          timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1 hours ago
           current: true,
           success: true,
         },
@@ -195,80 +204,72 @@ export default function ProfilePage() {
   }
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
+    const file = event.target.files?.[0];
+    if (!file) return;
+    // ✅ Validate file type
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid File Type",
         description: "Please select an image file (JPG, PNG, GIF, etc.)",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    // Validate file size (max 5MB)
+    // ✅ Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "File Too Large",
         description: "Please select an image smaller than 5MB",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    setUploadingPhoto(true)
-
+    setUploadingPhoto(true);
     try {
-      // Convert file to base64 for storage (in production, upload to cloud storage)
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64String = e.target?.result as string
-
-        // Update profile photo immediately for preview
-        setProfile((prev) => ({ ...prev, profilePhoto: base64String }))
-
-        // Save to user profile
+        const base64String = e.target?.result as string;
+        // ✅ Update local preview
+        setProfile((prev) => ({ ...prev, profilePhoto: base64String }));
+        // ✅ Save to server
         if (user) {
-          const result = await authService.updateProfile(user.id, {
-            ...user,
-            profilePhoto: base64String,
-          })
+          const result = await authService.updateProfile(user._id, {
+            photo: base64String,
+          });
 
-          if (result.success && result.user) {
-            setUser(result.user)
+          if (result.success && result) {
             toast({
               title: "Photo Updated",
               description: "Your profile photo has been updated successfully.",
-            })
+            });
           } else {
-            throw new Error(result.error || "Failed to update photo")
+            throw new Error(result.error || "Failed to update photo");
           }
         }
-      }
-
+      };
       reader.onerror = () => {
-        throw new Error("Failed to read file")
-      }
-
-      reader.readAsDataURL(file)
+        throw new Error("Failed to read file");
+      };
+      reader.readAsDataURL(file); // ✅ Base64 encode
     } catch (error: any) {
       toast({
         title: "Upload Failed",
         description: error.message || "Failed to upload photo. Please try again.",
         variant: "destructive",
-      })
-      // Revert photo change on error
-      setProfile((prev) => ({ ...prev, profilePhoto: originalProfile.profilePhoto }))
+      });
+      // 🔄 Revert to old photo
+      setProfile((prev) => ({
+        ...prev,
+        photo: originalProfile.profilePhoto,
+      }));
     } finally {
-      setUploadingPhoto(false)
-      // Clear the input
+      setUploadingPhoto(false);
+      // 🔁 Reset file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+        fileInputRef.current.value = "";
       }
     }
-  }
+  };
 
   const validateForm = () => {
     if (!profile.name.trim()) {
@@ -331,56 +332,62 @@ export default function ProfilePage() {
   }
 
   const handleSave = async () => {
-    if (!user || !validateForm()) return
+    if (!user || !validateForm()) return;
 
-    setSaving(true)
+    setSaving(true);
 
     try {
-      const result = await authService.updateProfile(user.id, {
+      // 1. Update profile fields (if needed)
+      const profileResult = await authService.updateProfile(user._id, {
         name: profile.name,
         email: profile.email,
-        phone: profile.phone,
+        phoneNo: profile.phone,
+      });
+
+      if (!profileResult.success) {
+        throw new Error(profileResult.error || "Failed to update profile");
+      }
+
+      // 2. Update address
+      const addressResult = await authService.updateAddress(user._id, {
+        userId: user._id,
         address: profile.address,
         city: profile.city,
         state: profile.state,
         pincode: profile.pincode,
         landmark: profile.landmark,
-        profilePhoto: profile.profilePhoto,
-        preferences: {
-          ...user.preferences,
-          currency: profile.currency,
-        },
-      })
 
-      if (result.success && result.user) {
-        setUser(result.user)
-        setOriginalProfile(profile)
-        setIsEditing(false)
+      });
 
-        // Update global currency
-        currencyService.setUserCurrency(profile.currency)
-
-        toast({
-          title: "Profile Updated",
-          description: "Your profile has been updated successfully.",
-        })
-      } else {
-        throw new Error(result.error || "Failed to update profile")
+      if (!addressResult.success) {
+        throw new Error(addressResult.error || "Failed to update address");
       }
+
+      // Optionally update UI state
+      setUser(profileResult.user); // or merge user and address if needed
+      setOriginalProfile(profile);
+      setIsEditing(false);
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile and address have been updated successfully.",
+      });
     } catch (error: any) {
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update profile. Please try again.",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
+
+
 
   const handleCancel = () => {
     setProfile(originalProfile)
-    setCurrentCurrency(originalProfile.currency)
+    // setCurrentCurrency(originalProfile.currency)
     setIsEditing(false)
   }
 
@@ -785,7 +792,7 @@ export default function ProfilePage() {
                                 : profile.memberLevel === "Silver"
                                   ? 50000
                                   : 100000)) *
-                              100,
+                            100,
                           )}%`,
                         }}
                       ></div>

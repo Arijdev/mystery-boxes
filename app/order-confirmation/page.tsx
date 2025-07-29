@@ -93,7 +93,7 @@ export default function OrderConfirmationPage() {
               <p className="text-gray-300 mb-4">
                 Thank you for your purchase. Your mystery boxes are being prepared for shipment.
               </p>
-              <Badge className="bg-purple-600 text-lg px-4 py-2">{orderData.id}</Badge>
+              <Badge className="bg-purple-600 text-lg px-4 py-2">{orderData._id}</Badge>
             </CardContent>
           </Card>
 
@@ -125,8 +125,8 @@ export default function OrderConfirmationPage() {
               {/* Items */}
               <div className="space-y-3 pt-4 border-t border-white/10">
                 <h3 className="text-white font-semibold">Items Ordered:</h3>
-                {orderData.items.map((item: any) => (
-                  <div key={item.id} className="flex items-center space-x-3">
+                {orderData.items.map((item: any, i: number) => (
+                  <div key={i} className="flex items-center space-x-3">
                     <div className="w-12 h-12 rounded-lg overflow-hidden">
                       <img
                         src={item.image || "/placeholder.svg"}

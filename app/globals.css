@@ -29,6 +29,16 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    
+    /* Custom light theme variables */
+    --bg-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    --bg-primary: 255 255 255;
+    --bg-secondary: 248 250 252;
+    --bg-card: 255 255 255;
+    --text-primary: 15 23 42;
+    --text-secondary: 71 85 105;
+    --text-muted: 100 116 139;
+    --border-color: 226 232 240;
   }
 
   .dark {
@@ -56,33 +66,31 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    
+    /* Custom dark theme variables */
+    --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --bg-primary: 15 23 42;
+    --bg-secondary: 30 41 59;
+    --bg-card: 30 41 59;
+    --text-primary: 248 250 252;
+    --text-secondary: 203 213 225;
+    --text-muted: 148 163 184;
+    --border-color: 51 65 85;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
-/* Light theme styles */
-.light {
-  --bg-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  --bg-primary: 255 255 255;
-  --bg-secondary: 248 250 252;
-  --bg-card: 255 255 255;
-  --text-primary: 15 23 42;
-  --text-secondary: 71 85 105;
-  --text-muted: 100 116 139;
-  --border-color: 226 232 240;
-}
-
+/* Light theme overrides */
 .light .bg-gradient-to-br {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%) !important;
+  background: var(--bg-gradient) !important;
 }
 
 .light .bg-black\/40 {
@@ -196,18 +204,6 @@
   outline-offset: 2px;
 }
 
-/* Dark theme styles (keep existing) */
-.dark {
-  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --bg-primary: 15 23 42;
-  --bg-secondary: 30 41 59;
-  --bg-card: 30 41 59;
-  --text-primary: 248 250 252;
-  --text-secondary: 203 213 225;
-  --text-muted: 148 163 184;
-  --border-color: 51 65 85;
-}
-
 /* Smooth transitions for theme changes */
 * {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
@@ -219,16 +215,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: hsl(var(--muted));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.5);
+  background: hsl(var(--accent));
 }
 
 /* Light theme scrollbar */
@@ -267,3 +263,37 @@
   background-color: rgba(147, 197, 253, 0.2);
   color: rgb(248 250 252);
 }
+
+
+/* .mobile-menu-open {
+    overflow: hidden;
+  }
+  
+  
+  .mobile-menu-overlay {
+    z-index: 60;
+  }
+  
+  .mobile-menu-panel {
+    z-index: 70;
+  }
+  
+ 
+  .mobile-menu-panel::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .mobile-menu-panel::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .mobile-menu-panel::-webkit-scrollbar-thumb {
+    background: rgba(147, 51, 234, 0.5);
+    border-radius: 2px;
+  }
+  
+  @media (max-width: 320px) {
+    .mobile-menu-panel {
+      width: 100vw !important;
+    }
+  } */

@@ -1,9 +1,23 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { db, validateCoupon } from "@/lib/db"
+import { NextRequest, NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
+import { connectDB } from "@/app/lib/DB/connection";
+import Order from "@/app/lib/model/order";
+import type { OrderDocument } from "@/app/lib/model/order";
+import { getUserFromRequest } from "@/app/lib/middleware/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    await connectDB();
+    let user = await getUserFromRequest(request);
+    const userId = user?._id;
+    // console.log(user._id);
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not authenticated" },
+        { status: 401 }
+      );
+    }
+    const body = await request.json();
     const {
       items,
       shippingAddress,
@@ -13,13 +27,15 @@ export async function POST(request: NextRequest) {
       discount,
       shipping,
       total,
-      appliedCoupon,
-      userId = "guest-user", // In production, get from authentication
-    } = body
+      appliedCoupon
+    } = body;
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Items are required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Items are required" },
+        { status: 400 }
+      );
     }
 
     if (
@@ -29,14 +45,20 @@ export async function POST(request: NextRequest) {
       !shippingAddress.phone ||
       !shippingAddress.address
     ) {
-      return NextResponse.json({ error: "Complete shipping address is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Complete shipping address is required" },
+        { status: 400 }
+      );
     }
 
     if (!paymentMethod) {
-      return NextResponse.json({ error: "Payment method is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Payment method is required" },
+        { status: 400 }
+      );
     }
 
-    // Validate payment details based on method
+    // Card validation
     if (paymentMethod === "card") {
       if (
         !paymentDetails?.cardNumber ||
@@ -44,40 +66,49 @@ export async function POST(request: NextRequest) {
         !paymentDetails?.cvv ||
         !paymentDetails?.cardName
       ) {
-        return NextResponse.json({ error: "Complete card details are required" }, { status: 400 })
+        return NextResponse.json(
+          { error: "Complete card details are required" },
+          { status: 400 }
+        );
       }
     }
 
+    // UPI validation
     if (paymentMethod === "upi") {
       if (!paymentDetails?.upiId) {
-        return NextResponse.json({ error: "UPI ID is required" }, { status: 400 })
+        return NextResponse.json(
+          { error: "UPI ID is required" },
+          { status: 400 }
+        );
       }
     }
 
-    // Validate coupon if applied
-    if (appliedCoupon) {
-      const couponValidation = validateCoupon(appliedCoupon.code, subtotal)
-      if (!couponValidation || couponValidation.error) {
-        return NextResponse.json({ error: couponValidation?.error || "Invalid coupon code" }, { status: 400 })
-      }
-    }
+    // Subtotal calculation check
+    const calculatedSubtotal = items.reduce(
+      (sum: number, item: any) => sum + item.price * item.quantity,
+      0
+    );
 
-    // Calculate and verify totals
-    const calculatedSubtotal = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
     if (Math.abs(calculatedSubtotal - subtotal) > 0.01) {
-      return NextResponse.json({ error: "Invalid subtotal calculation" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Invalid subtotal calculation" },
+        { status: 400 }
+      );
     }
 
-    // Simulate payment processing delay
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Simulate payment delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Simulate payment failure (5% chance for demo purposes)
+    // Simulate failure
     if (Math.random() < 0.05) {
-      return NextResponse.json({ error: "Payment processing failed. Please try again." }, { status: 402 })
+      return NextResponse.json(
+        { error: "Payment failed. Try again." },
+        { status: 402 }
+      );
     }
 
-    // Create order in database
-    const order = await db.orders.create({
+    // Create order
+    const newOrder: OrderDocument = await Order.create({
       userId,
       items,
       shippingAddress,
@@ -87,50 +118,50 @@ export async function POST(request: NextRequest) {
       discount,
       shipping,
       total,
-      appliedCoupon,
-      status: "confirmed",
-    })
-
-    // In production, you would:
-    // 1. Send confirmation email
-    // 2. Update inventory
-    // 3. Trigger fulfillment process
-    // 4. Send SMS notifications
-    // 5. Log analytics events
+      appliedCoupon, // stored, but not validated
+      status: "confirmed"
+    });
 
     return NextResponse.json({
       success: true,
       order: {
-        id: order.id,
-        status: order.status,
-        total: order.total,
-        createdAt: order.createdAt,
-      },
-    })
+        id: newOrder._id,
+        status: newOrder.status,
+        total: newOrder.total,
+        createdAt: newOrder.createdAt
+      }
+    });
   } catch (error) {
-    console.error("Order creation error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Order creation error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId") || "guest-user"
-    const orderId = searchParams.get("orderId")
-
+    await connectDB();
+    const { searchParams } = new URL(request.url);
+    const orderId = searchParams.get("orderId");
+    let user = await getUserFromRequest(request);
+    const userId = user?._id;
     if (orderId) {
-      const order = await db.orders.findById(orderId)
+      const order = await Order.findById(orderId);
       if (!order) {
-        return NextResponse.json({ error: "Order not found" }, { status: 404 })
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
       }
-      return NextResponse.json({ order })
+      return NextResponse.json({ order });
     }
 
-    const orders = await db.orders.findByUserId(userId)
-    return NextResponse.json({ orders })
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+    return NextResponse.json({ orders });
   } catch (error) {
-    console.error("Order fetch error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Order fetch error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

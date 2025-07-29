@@ -21,25 +21,49 @@ export default function CartPage() {
   const { toast } = useToast()
   const router = useRouter()
 
-  // Available coupons
+
   const availableCoupons = {
     MYSTERY20: { discount: 0.2, type: "percentage" as const, minOrder: 2000 },
     FIRSTBOX: { discount: 500, type: "fixed" as const, minOrder: 3000 },
     SAVE100: { discount: 100, type: "fixed" as const, minOrder: 1000 },
   }
 
-  // Load cart from localStorage
+  let userId = localStorage.getItem("userId")
+  // Load cart from MongoDB
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart")
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart))
+    const fetchCart = async () => {
+      try {
+        const res = await fetch(`/api/cart?userId=${userId}`)
+        const data = await res.json()
+
+        if (data?.cartItems) {
+          setCartItems(data.cartItems)
+          if (data.appliedCoupon) setAppliedCoupon(data.appliedCoupon)
+        }
+      } catch (err) {
+        console.error("❌ Failed to load cart from MongoDB:", err)
+      }
     }
+
+    fetchCart()
   }, [])
 
-  // Save cart to localStorage whenever cartItems changes
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems))
-  }, [cartItems])
+  // Save cart to MongoDB
+  // useEffect(() => {
+  //   const saveCart = async () => {
+  //     try {
+  //       await fetch("/api/cart", {
+  //         method: "POST",
+  //         headers: { "Content-Type": "application/json" },
+  //         body: JSON.stringify({ userId, cartItems, appliedCoupon }),
+  //       })
+  //     } catch (err) {
+  //       console.error("❌ Failed to save cart to MongoDB:", err)
+  //     }
+  //   }
+
+  //   if (cartItems.length > 0) saveCart()
+  // }, [cartItems, appliedCoupon])
 
   const updateQuantity = (id: number, newQuantity: number) => {
     if (newQuantity === 0) {
@@ -53,14 +77,30 @@ export default function CartPage() {
     }
   }
 
-  const removeItem = (id: number) => {
-    const item = cartItems.find((item) => item.id === id)
-    setCartItems(cartItems.filter((item) => item.id !== id))
-    toast({
-      title: "Item Removed",
-      description: `${item?.name} has been removed from your cart.`,
-    })
+  const removeItem = async (id: number) => {
+    try {
+      const res = await fetch("/api/cart", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ itemId: id }),
+      })
+
+      if (!res.ok) throw new Error("Failed to remove item")
+
+      const item = cartItems.find((item) => item.id === id)
+      setCartItems(cartItems.filter((item) => item.id !== id))
+
+      toast({
+        title: "Item Removed",
+        description: `${item?.name} has been removed from your cart.`,
+      })
+    } catch (error) {
+      console.error("Error removing item from cart:", error)
+    }
   }
+
 
   const applyCoupon = () => {
     const coupon = availableCoupons[couponCode.toUpperCase() as keyof typeof availableCoupons]
@@ -114,7 +154,6 @@ export default function CartPage() {
       return
     }
 
-    // Save order summary to localStorage for checkout
     const orderSummary = {
       items: cartItems,
       subtotal,

@@ -45,6 +45,7 @@ import { themeService, type Theme } from "@/lib/theme"
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState("profile")
@@ -109,57 +110,67 @@ export default function SettingsPage() {
   })
 
   useEffect(() => {
-    const currentUser = authService.getCurrentUser()
-    if (!currentUser) {
-      router.push("/auth/signin")
-      return
-    }
+    const initializeUser = async () => {
+      const user = await authService.getCurrentUser();
+      console.log("✔ User in useEffect:", user);
 
-    // Initialize theme
-    const savedTheme = themeService.getTheme()
-    setCurrentTheme(savedTheme)
-    themeService.initTheme()
+      if (!user || !user._id || !user.email) {
+        console.warn("❌ Invalid user, redirecting");
+        router.push("/auth/signin");
+        return;
+      }
 
-    // Initialize language
-    const savedLanguage = (localStorage.getItem("language") as Language) || "en"
-    setCurrentLanguage(savedLanguage)
+      setCurrentUser(user);
+      setUser(user);
 
-    setUser(currentUser)
-    setProfileData({
-      name: currentUser.name || "",
-      email: currentUser.email || "",
-      phone: currentUser.phone || "",
-      address: currentUser.address || "",
-      city: currentUser.city || "",
-      state: currentUser.state || "",
-      pincode: currentUser.pincode || "",
-      landmark: currentUser.landmark || "",
-    })
+      // Safe defaults
+      setProfileData({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phoneNo || "", // ✅ Your backend sends `phoneNo`, not `phone`
+        address: user.address || "",
+        city: user.city || "",
+        state: user.state || "",
+        pincode: user.pincode || "",
+        landmark: user.landmark || "",
+      });
 
-    if (currentUser.preferences) {
-      setNotificationSettings({
-        emailNotifications: currentUser.preferences.emailNotifications ?? true,
-        smsNotifications: currentUser.preferences.smsNotifications ?? true,
-        pushNotifications: currentUser.preferences.pushNotifications ?? false,
-        marketingEmails: currentUser.preferences.marketingEmails ?? false,
-        orderUpdates: currentUser.preferences.orderUpdates ?? true,
-        newProducts: currentUser.preferences.newProducts ?? true,
-        promotions: currentUser.preferences.promotions ?? false,
-        newsletter: currentUser.preferences.newsletter ?? false,
-      })
+      if (user.preferences) {
+        setNotificationSettings({
+          emailNotifications: user.preferences.emailNotifications ?? true,
+          smsNotifications: user.preferences.smsNotifications ?? true,
+          pushNotifications: user.preferences.pushNotifications ?? false,
+          marketingEmails: user.preferences.marketingEmails ?? false,
+          orderUpdates: user.preferences.orderUpdates ?? true,
+          newProducts: user.preferences.newProducts ?? true,
+          promotions: user.preferences.promotions ?? false,
+          newsletter: user.preferences.newsletter ?? false,
+        });
 
-      setPreferences({
-        theme: currentUser.preferences.theme || "dark",
-        language: currentUser.preferences.language || "en",
-        currency: currentUser.preferences.currency || "INR",
-        timezone: currentUser.preferences.timezone || "Asia/Kolkata",
-        dateFormat: currentUser.preferences.dateFormat || "DD/MM/YYYY",
-        autoLogout: currentUser.preferences.autoLogout || "60",
-      })
-    }
+        setPreferences({
+          theme: user.preferences.theme || "dark",
+          language: user.preferences.language || "en",
+          currency: user.preferences.currency || "INR",
+          timezone: user.preferences.timezone || "Asia/Kolkata",
+          dateFormat: user.preferences.dateFormat || "DD/MM/YYYY",
+          autoLogout: user.preferences.autoLogout || "60",
+        });
+      }
 
-    setLoading(false)
-  }, [router])
+      const savedTheme = themeService.getTheme();
+      setCurrentTheme(savedTheme);
+      themeService.initTheme();
+
+      const savedLanguage = (localStorage.getItem("language") as Language) || "en";
+      setCurrentLanguage(savedLanguage);
+
+      setLoading(false);
+    };
+
+    initializeUser();
+  }, [router]);
+
+
 
   const handleProfileChange = (field: string, value: string) => {
     setProfileData((prev) => ({ ...prev, [field]: value }))
@@ -272,7 +283,10 @@ export default function SettingsPage() {
     setSaving(true)
 
     try {
-      const result = await authService.changePassword(user.id, passwordData.currentPassword, passwordData.newPassword)
+      const result = await authService.updateProfile(user._id, {
+            password: passwordData.newPassword,
+            currentPassword: passwordData.currentPassword,
+          });
 
       if (result.success) {
         setPasswordData({
@@ -401,11 +415,10 @@ export default function SettingsPage() {
                         <button
                           key={item.id}
                           onClick={() => setActiveTab(item.id)}
-                          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                            isActive
+                          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-left ${isActive
                               ? "bg-purple-600 text-white"
                               : "text-gray-300 hover:bg-purple-600/20 hover:text-white"
-                          }`}
+                            }`}
                         >
                           <Icon className="h-5 w-5" />
                           <span>{item.label}</span>

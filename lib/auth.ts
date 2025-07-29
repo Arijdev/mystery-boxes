@@ -1,270 +1,201 @@
-// Simple authentication system (in production, use NextAuth.js or similar)
-interface User {
-  id: string
-  email: string
-  name: string
-  phone: string
-  address?: string
-  city?: string
-  state?: string
-  pincode?: string
-  landmark?: string
-  profilePhoto?: string
-  createdAt: string
-  preferences: {
-    emailNotifications: boolean
-    smsNotifications: boolean
-    pushNotifications: boolean
-    marketingEmails: boolean
-    orderUpdates: boolean
-    newProducts: boolean
-    promotions: boolean
-    newsletter: boolean
-    twoFactorEnabled: boolean
-    loginAlerts: boolean
-    sessionTimeout: string
-    passwordExpiry: boolean
-    theme: "light" | "dark" | "system"
-    language: string
-    currency: string
-    timezone: string
-    dateFormat: string
-    autoLogout: string
-  }
-}
-
-interface AuthState {
-  user: User | null
-  isAuthenticated: boolean
-}
-
-// In-memory user storage (replace with real database in production)
-const users: User[] = [
-  {
-    id: "user-1",
-    email: "john.doe@example.com",
-    name: "John Doe",
-    phone: "+91 98765 43210",
-    address: "123 Mystery Street",
-    city: "Mumbai",
-    state: "Maharashtra",
-    pincode: "400001",
-    landmark: "Near Metro Station",
-    profilePhoto: "",
-    createdAt: "2024-01-15T10:30:00Z",
-    preferences: {
-      emailNotifications: true,
-      smsNotifications: true,
-      pushNotifications: false,
-      marketingEmails: false,
-      orderUpdates: true,
-      newProducts: true,
-      promotions: false,
-      newsletter: false,
-      twoFactorEnabled: false,
-      loginAlerts: true,
-      sessionTimeout: "30",
-      passwordExpiry: false,
-      theme: "dark",
-      language: "en",
-      currency: "INR",
-      timezone: "Asia/Kolkata",
-      dateFormat: "DD/MM/YYYY",
-      autoLogout: "60",
-    },
-  },
-  {
-    id: "demo-user",
-    email: "demo@mysteryvault.com",
-    name: "Demo User",
-    phone: "+91 98765 43210",
-    address: "Demo Address, Demo City",
-    city: "Mumbai",
-    state: "Maharashtra",
-    pincode: "400001",
-    landmark: "Demo Landmark",
-    profilePhoto: "",
-    createdAt: "2024-01-01T00:00:00Z",
-    preferences: {
-      emailNotifications: true,
-      smsNotifications: true,
-      pushNotifications: true,
-      marketingEmails: true,
-      orderUpdates: true,
-      newProducts: true,
-      promotions: true,
-      newsletter: true,
-      twoFactorEnabled: false,
-      loginAlerts: true,
-      sessionTimeout: "60",
-      passwordExpiry: false,
-      theme: "dark",
-      language: "en",
-      currency: "INR",
-      timezone: "Asia/Kolkata",
-      dateFormat: "DD/MM/YYYY",
-      autoLogout: "60",
-    },
-  },
-]
+import { connectDB } from "@/app/lib/DB/connection";
+import { UserModel } from "@/app/lib/model/user";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const authService = {
-  // Sign in user
-  signIn: async (email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+  signIn: async (email: string, password: string) => {
+    try {
+      await connectDB();
+      const user = await UserModel.findOne({ email });
+      if (!user) {
+        console.warn(`Login failed: No user with email ${email}`);
+        return { success: false, error: "User not found" };
+      }
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return { success: false, error: "Invalid password" };
+      }
+      const userData = user.toObject() as any;
+      delete userData.password;
+      // ✅ Create JWT
+      const token = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_SECRET!, // ensure this is set in your .env file
+        { expiresIn: "1d" }
+      );
 
-    // Demo credentials
-    if (email === "demo@mysteryvault.com" && password === "demo123") {
-      const user = users.find((u) => u.email === "demo@mysteryvault.com")!
-      localStorage.setItem("auth_user", JSON.stringify(user))
-      return { success: true, user }
+      return {
+        success: true,
+        user: userData,
+        token // ✅ return token
+      };
+    } catch (error) {
+      console.error("authService signIn error:", error);
+      return { success: false, error: "Server error" };
     }
-
-    // Check if user exists
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (!user) {
-      return { success: false, error: "User not found. Please check your email address." }
-    }
-
-    // In production, verify password hash
-    if (password.length < 6) {
-      return { success: false, error: "Invalid password. Please try again." }
-    }
-
-    localStorage.setItem("auth_user", JSON.stringify(user))
-    return { success: true, user }
   },
 
-  // Sign up new user
   signUp: async (userData: {
-    name: string
-    email: string
-    phone: string
-    password: string
-  }): Promise<{ success: boolean; user?: User; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    name: string;
+    email: string;
+    phoneNo: string;
+    password: string;
+  }) => {
+    await connectDB();
 
-    // Check if user already exists
-    const existingUser = users.find((u) => u.email.toLowerCase() === userData.email.toLowerCase())
-    if (existingUser) {
-      return { success: false, error: "An account with this email already exists." }
+    const existing = await UserModel.findOne({ email: userData.email });
+    if (existing) return { success: false, error: "Email already registered" };
+
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+    const newUser = await UserModel.create({
+      ...userData,
+      password: hashedPassword
+    });
+
+    const userWithoutPassword = newUser.toObject() as any;
+    delete userWithoutPassword.password;
+
+    return { success: true, user: userWithoutPassword };
+  },
+
+  signOut: async () => {
+    await fetch("/api/signout", {
+      method: "POST",
+      credentials: "include"
+    });
+  },
+
+  getCurrentUser: async (): Promise<any | null> => {
+    try {
+      const res = await fetch("/api/me", {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json"
+        }
+      });
+
+      if (!res.ok) {
+        console.warn("❌ Failed to fetch /api/me");
+        return null;
+      }
+
+      const user = await res.json();
+
+      return user;
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      return null;
     }
+  },
 
-    // Create new user
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email: userData.email,
-      name: userData.name,
-      phone: userData.phone,
-      profilePhoto: "",
-      createdAt: new Date().toISOString(),
-      preferences: {
-        emailNotifications: true,
-        smsNotifications: true,
-        pushNotifications: false,
-        marketingEmails: true,
-        orderUpdates: true,
-        newProducts: true,
-        promotions: false,
-        newsletter: false,
-        twoFactorEnabled: false,
-        loginAlerts: true,
-        sessionTimeout: "30",
-        passwordExpiry: false,
-        theme: "dark",
-        language: "en",
-        currency: "INR",
-        timezone: "Asia/Kolkata",
-        dateFormat: "DD/MM/YYYY",
-        autoLogout: "60",
+  updateProfile: async (userId: string, updates: any) => {
+  try {
+    const res = await fetch(`/api/users/${userId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
       },
+      credentials: "include",
+      body: JSON.stringify(updates),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { success: false, error: data.error || "Failed to update profile" };
     }
 
-    users.push(newUser)
-    localStorage.setItem("auth_user", JSON.stringify(newUser))
-    return { success: true, user: newUser }
-  },
+    return { success: true, user: data.user || data };
+  } catch (error) {
+    console.error("Update error:", error);
+    return { success: false, error: "Server error" };
+  }
+},
 
-  // Sign out user
-  signOut: async (): Promise<void> => {
-    localStorage.removeItem("auth_user")
-    // Clear cart and other user-specific data
-    localStorage.removeItem("cart")
-    localStorage.removeItem("orderSummary")
-  },
+getAddress: async (): Promise<{ success: true; address: any } | { success: false; error: any }> => {
+  try {
+    const res = await fetch("/api/address", {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await res.json();
 
-  // Get current user
-  getCurrentUser: (): User | null => {
-    if (typeof window === "undefined") return null
-    const userData = localStorage.getItem("auth_user")
-    return userData ? JSON.parse(userData) : null
-  },
+    if (!res.ok) {
+      return { success: false, error: data.error || "Failed to fetch address" };
+    }
+    return { success: true, address: data.address };
+  } catch (error) {
+    console.error("Address fetch error:", error);
+    return { success: false, error: "Server error" };
+  }
+},
 
-  // Update user profile
-  updateProfile: async (
-    userId: string,
-    updates: Partial<User>,
-  ): Promise<{ success: boolean; user?: User; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
+updateAddress: async ( userId: string, updates: any ) => {
+  try {
+    const res = await fetch(`/api/address/${userId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(updates),
+    });
 
-    const userIndex = users.findIndex((u) => u.id === userId)
-    if (userIndex === -1) {
-      return { success: false, error: "User not found" }
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { success: false, error: data.error || "Failed to update address" };
     }
 
-    // Update user data
-    users[userIndex] = { ...users[userIndex], ...updates }
-    localStorage.setItem("auth_user", JSON.stringify(users[userIndex]))
+    return { success: true, address: data.address };
+  } catch (error) {
+    console.error("Address update error:", error);
+    return { success: false, error: "Server error" };
+  }
+},
 
-    return { success: true, user: users[userIndex] }
-  },
+deleteAccount: async (userId: string, password: string) => {
+    try {
+      await connectDB();
 
-  // Change password
-  changePassword: async (
-    userId: string,
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+      const user = await UserModel.findById(userId);
+      if (!user) {
+        return { success: false, error: "User not found" };
+      }
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return { success: false, error: "Incorrect password" };
+      }
 
-    // In production, verify current password hash
-    if (currentPassword.length < 6) {
-      return { success: false, error: "Current password is incorrect" }
+      await UserModel.findByIdAndDelete(userId);
+
+      return { success: true };
+    } catch (error) {
+      console.error("Delete account error:", error);
+      return { success: false, error: "Server error" };
     }
+  }
+};
 
-    if (newPassword.length < 6) {
-      return { success: false, error: "New password must be at least 6 characters long" }
-    }
+// getUserFromRequest: async (req: Request): Promise<any | null> => {
+//   try {
+//     const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+//     if (!token) return null;
 
-    // In production, hash and store new password
-    return { success: true }
-  },
+//     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+//     if (!decoded || !decoded.userId) return null;
 
-  // Delete account
-  deleteAccount: async (userId: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-
-    // In production, verify password
-    if (password.length < 6) {
-      return { success: false, error: "Password is incorrect" }
-    }
-
-    // Remove user from storage
-    const userIndex = users.findIndex((u) => u.id === userId)
-    if (userIndex !== -1) {
-      users.splice(userIndex, 1)
-    }
-
-    // Clear local storage
-    localStorage.removeItem("auth_user")
-    localStorage.removeItem("cart")
-    localStorage.removeItem("orderSummary")
-
-    return { success: true }
-  },
-}
+//     await connectDB();
+//     const user = await UserModel.findById(decoded.userId).select("-password");
+//     return user ? user.toObject() : null;
+//   } catch (error) {
+//     console.error("Error getting user from request:", error);
+//     return null;
+//   }
+// }
