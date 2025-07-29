@@ -28,25 +28,29 @@ export default function CartPage() {
     SAVE100: { discount: 100, type: "fixed" as const, minOrder: 1000 },
   }
 
-  let userId = localStorage.getItem("userId")
+  
   // Load cart from MongoDB
   useEffect(() => {
-    const fetchCart = async () => {
-      try {
-        const res = await fetch(`/api/cart?userId=${userId}`)
-        const data = await res.json()
+  const fetchCart = async () => {
+    try {
+      const userId = localStorage.getItem("userId")
+      if (!userId) return // Add this check
+      
+      const res = await fetch(`/api/cart?userId=${userId}`)
+      const data = await res.json()
 
-        if (data?.cartItems) {
-          setCartItems(data.cartItems)
-          if (data.appliedCoupon) setAppliedCoupon(data.appliedCoupon)
-        }
-      } catch (err) {
-        console.error("❌ Failed to load cart from MongoDB:", err)
+      if (data?.cartItems) {
+        setCartItems(data.cartItems)
+        if (data.appliedCoupon) setAppliedCoupon(data.appliedCoupon)
       }
+    } catch (err) {
+      console.error("❌ Failed to load cart from MongoDB:", err)
     }
+  }
 
-    fetchCart()
-  }, [])
+  fetchCart()
+}, [])
+
 
   // Save cart to MongoDB
   // useEffect(() => {
@@ -162,7 +166,9 @@ export default function CartPage() {
       total,
       appliedCoupon,
     }
+    if (typeof window !== 'undefined') {
     localStorage.setItem("orderSummary", JSON.stringify(orderSummary))
+  }
     router.push("/checkout")
   }
 
