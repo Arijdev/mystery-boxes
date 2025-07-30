@@ -1,12 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/app/lib/DB/connection";
 import Order from "@/app/lib/model/order";
+import { Types } from "mongoose";
 
-export async function GET(request: NextRequest,{ params }: { params: { orderId: string } }) 
-{
+export async function GET(request: NextRequest, { params }: { params: { orderId: string } }) {
   try {
     await connectDB();
-    const order = await Order.findById(params.orderId);
+    
+    // Await params before accessing properties
+    const { orderId } = await params;
+    
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(orderId)) {
+      return NextResponse.json({ error: "Invalid order ID format" }, { status: 400 });
+    }
+    
+    const order = await Order.findById(orderId);
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -28,6 +37,15 @@ export async function PATCH(
 ) {
   try {
     await connectDB();
+    
+    // Await params before accessing properties
+    const { orderId } = await params;
+    
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(orderId)) {
+      return NextResponse.json({ error: "Invalid order ID format" }, { status: 400 });
+    }
+    
     const body = await request.json();
     const { status } = body;
 
@@ -41,7 +59,7 @@ export async function PATCH(
     const validStatuses = [
       "pending",
       "confirmed",
-      "processing",
+      "processing", 
       "shipped",
       "delivered",
       "cancelled"
@@ -52,7 +70,7 @@ export async function PATCH(
     }
 
     const order = await Order.findByIdAndUpdate(
-      params.orderId,
+      orderId,  // Use the destructured orderId
       { status },
       { new: true }
     );

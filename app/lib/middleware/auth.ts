@@ -20,8 +20,6 @@ export async function getUserFromRequest(request: NextRequest): Promise<any | nu
       console.log("No token found in cookies");
       return null;
     }
-
-    console.log("🔍 Token found, verifying..."); // Add debug logging
     
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayloadWithId;
     
@@ -30,8 +28,6 @@ export async function getUserFromRequest(request: NextRequest): Promise<any | nu
       return null;
     }
 
-    console.log("🔍 Token verified, userId:", decoded.userId); // Add debug logging
-    
     await connectDB();
     
     // ✅ Correct MongoDB query syntax
@@ -42,7 +38,6 @@ export async function getUserFromRequest(request: NextRequest): Promise<any | nu
       return null;
     }
 
-    console.log("✅ User found:", user.email); // Add debug logging
     return user.toObject(); // ✅ Convert to plain object
     
   } catch (error: any) {

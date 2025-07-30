@@ -40,7 +40,7 @@ export default function MyAccountLayout({
           >
             <Link href="/">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Store
+              Back
             </Link>
           </Button>
         </div>

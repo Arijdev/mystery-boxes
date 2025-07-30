@@ -39,6 +39,7 @@ import { authService } from "@/lib/auth"
 import { useTranslation, type Language } from "@/lib/i18n"
 import { themeService } from "@/lib/theme"
 import { currencyService, type Currency } from "@/lib/currency"
+import { mysteryBoxes, getBoxesByCategory, type MysteryBox } from "@/lib/mysteryBoxes"
 
 export default function MysteryBoxStore() {
   const [cartItems, setCartItems] = useState(0)
@@ -49,6 +50,7 @@ export default function MysteryBoxStore() {
   const { toast } = useToast()
   const { t } = useTranslation(currentLanguage)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState("all")
 
   // ✅ Fixed user authentication with proper error handling
   useEffect(() => {
@@ -136,8 +138,8 @@ export default function MysteryBoxStore() {
     }
   }, [user])
 
-  // ✅ Improved addToCart with better error handling
-  const addToCart = async (box: any) => {
+  // ✅ Improved addToCart with better error handling and proper typing
+  const addToCart = async (box: MysteryBox) => {
     if (!user) {
       toast({ 
         title: "Sign In Required", 
@@ -216,91 +218,8 @@ export default function MysteryBoxStore() {
     }
   }
 
-  const mysteryBoxes = [
-    {
-      id: 1,
-      name: "Gaming Legends Box",
-      price: 3999.99,
-      originalValue: 12000,
-      category: "gaming",
-      image: "/legend.png",
-      description: "Epic gaming gear and collectibles",
-      items: "5-7 items",
-      rating: 4.8,
-      reviews: 234,
-      popular: true,
-    },
-    {
-      id: 2,
-      name: "Tech Innovator Box",
-      price: 6399.99,
-      originalValue: 16000,
-      category: "tech",
-      image: "/tech.png",
-      description: "Latest gadgets and tech accessories",
-      items: "4-6 items",
-      rating: 4.9,
-      reviews: 189,
-      popular: false,
-    },
-    {
-      id: 3,
-      name: "Lifestyle Essentials Box",
-      price: 2799.99,
-      originalValue: 8000,
-      category: "lifestyle",
-      image: "/Lifestyle.png",
-      description: "Curated lifestyle and wellness items",
-      items: "6-8 items",
-      rating: 4.7,
-      reviews: 156,
-      popular: false,
-    },
-    {
-      id: 4,
-      name: "Collector's Rare Box",
-      price: 10399.99,
-      originalValue: 32000,
-      category: "collectibles",
-      image: "/Collector.png",
-      description: "Rare finds and limited edition items",
-      items: "3-5 items",
-      rating: 4.9,
-      reviews: 98,
-      popular: true,
-    },
-    {
-      id: 5,
-      name: "Fitness Power Box",
-      price: 4799.99,
-      originalValue: 14400,
-      category: "fitness",
-      image: "/Fitness.png",
-      description: "Premium fitness and workout gear",
-      items: "4-7 items",
-      rating: 4.6,
-      reviews: 203,
-      popular: false,
-    },
-    {
-      id: 6,
-      name: "Artisan Craft Box",
-      price: 3599.99,
-      originalValue: 9600,
-      category: "crafts",
-      image: "/artisan.png",
-      description: "Handcrafted items from local artisans",
-      items: "5-8 items",
-      rating: 4.8,
-      reviews: 167,
-      popular: false,
-    },
-  ]
-
-  const [selectedCategory, setSelectedCategory] = useState("all")
-
-  const filteredBoxes =
-    selectedCategory === "all" ? mysteryBoxes : mysteryBoxes.filter((box) => box.category === selectedCategory)
+  // ✅ Use the helper function to filter boxes
+  const filteredBoxes = getBoxesByCategory(selectedCategory)
 
   // ✅ Now actually using the currency formatting function
   const formatPrice = (priceInINR: number, originalValueInINR: number) => {
@@ -708,7 +627,6 @@ export default function MysteryBoxStore() {
                       <div className="flex items-center justify-between">
                         <span className="text-xl sm:text-2xl font-bold text-white">₹{box.price.toLocaleString()}</span>
                         <span className="text-sm text-gray-400 line-through">₹{box.originalValue.toLocaleString()}</span>
-
                       </div>
                       <div className="text-sm text-green-400">Save up to {savingsPercentage}%</div>
                     </div>
