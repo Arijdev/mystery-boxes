@@ -1,19 +1,25 @@
 import mongoose from "mongoose";
 
-let isConnected = false;
-
 export async function connectDB() {
-  if (isConnected) return;
+  // Check mongoose connection state instead of global variable
+  if (mongoose.connections[0].readyState === 1) {
+    return; // Already connected
+  }
 
   try {
-    await mongoose.connect(
-      process.env.MONGO_URI ||
-        "mongodb+srv://arijchowdhury:Arij1234@cluster0.ypvv5cp.mongodb.net/ecommarce?retryWrites=true&w=majority&appName=ecommerce"
-    );
+    const mongoUri = process.env.MONGODB_URI;
+    
+    if (!mongoUri) {
+      throw new Error("MONGO_URI environment variable is not defined");
+    }
 
-    isConnected = true;
-    // console.log("✅ Connected to MongoDB");
+    await mongoose.connect(mongoUri, {
+      bufferCommands: false, // Disable mongoose buffering for serverless
+    });
+    
+    console.log("✅ Connected to MongoDB");
   } catch (err) {
     console.error("❌ MongoDB connection error:", err);
+    throw err;
   }
 }
