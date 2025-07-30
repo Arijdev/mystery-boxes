@@ -13,7 +13,14 @@ export async function POST(req: Request) {
     if (!email || !password) {
       return NextResponse.json(
         { success: false, error: "Email and password are required" },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          }
+        }
       );
     }
 
@@ -23,11 +30,17 @@ export async function POST(req: Request) {
       const errorMsg = result?.error || "Invalid credentials";
       return NextResponse.json(
         { success: false, error: errorMsg },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          }
+        }
       );
     }
 
-    // ✅ THIS PART IS MISSING IN YOUR CODE
     if (result.token) {
       const cookieStore = await cookies();
       cookieStore.set("token", result.token, {
@@ -41,13 +54,28 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       { success: true, user: result.user },
-      { status: 200 }
+      { 
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      }
     );
   } catch (error: any) {
     console.error("Sign-in error:", error.message || error);
     return NextResponse.json(
       { success: false, error: "Internal Server Error" },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      }
     );
   }
 }
+

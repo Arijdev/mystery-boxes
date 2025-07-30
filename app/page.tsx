@@ -43,31 +43,56 @@ import { currencyService, type Currency } from "@/lib/currency"
 export default function MysteryBoxStore() {
   const [cartItems, setCartItems] = useState(0)
   const [user, setUser] = useState<any>(null)
+  const [userLoading, setUserLoading] = useState(true)
   const [currentLanguage, setCurrentLanguage] = useState<Language>("en")
   const [currentCurrency, setCurrentCurrency] = useState<Currency>("INR")
   const { toast } = useToast()
   const { t } = useTranslation(currentLanguage)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  // ✅ Fixed user authentication with proper error handling
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
+        setUserLoading(true)
         const res = await fetch("/api/me", {
           method: "GET",
           credentials: "include",
         })
-        if (!res.ok) {
+        
+        if (res.status === 404) {
+          console.error("API endpoint /api/me not found")
           setUser(null)
           return
         }
+        
+        if (!res.ok) {
+          // Don't log 401 errors as they're expected for non-authenticated users
+          if (res.status !== 401) {
+            console.error("Failed to fetch user:", res.status)
+          }
+          setUser(null)
+          return
+        }
+        
         const data = await res.json()
         setUser(data)
       } catch (error) {
         console.error("Error fetching current user:", error)
         setUser(null)
+      } finally {
+        setUserLoading(false)
       }
     }
+    
     fetchCurrentUser()
+  }, [])
+
+  // ✅ Added cleanup for body overflow
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
   }, [])
 
   useEffect(() => {
@@ -83,18 +108,26 @@ export default function MysteryBoxStore() {
     return () => window.removeEventListener("currencyChange", handleCurrencyChange as EventListener)
   }, [])
 
-
+  // ✅ Fixed cart fetching with proper error handling
   useEffect(() => {
     if (user) {
       const fetchCart = async () => {
         try {
           const res = await fetch("/api/cart", { credentials: "include" })
+          
+          if (!res.ok) {
+            console.error("Failed to fetch cart:", res.status)
+            setCartItems(0)
+            return
+          }
+          
           const data = await res.json()
           const cartItems = data.cartItems || []
           const totalItems = cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
           setCartItems(totalItems)
         } catch (error) {
           console.error("Failed to load cart from server", error)
+          setCartItems(0)
         }
       }
       fetchCart()
@@ -103,6 +136,7 @@ export default function MysteryBoxStore() {
     }
   }, [user])
 
+  // ✅ Improved addToCart with better error handling
   const addToCart = async (box: any) => {
     if (!user) {
       toast({ 
@@ -123,26 +157,33 @@ export default function MysteryBoxStore() {
         price: box.price,
         quantity: 1,
       }
+      
       const res = await fetch("/api/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cartItems: [cartItem] }),
+        credentials: "include"
       })
+      
       if (!res.ok) {
-        const errorData = await res.json()
+        const errorData = await res.json().catch(() => ({ error: "Failed to add to cart" }))
         throw new Error(errorData.error || "Failed to add to cart")
       }
+      
       const data = await res.json()
       const cartItems = data.cartItems || []
       const totalItems = cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
       setCartItems(totalItems)
 
-      toast({ title: "Added to Cart!", description: `${box.name} has been added to your cart.` })
-    } catch (error) {
+      toast({ 
+        title: "Added to Cart!", 
+        description: `${box.name} has been added to your cart.` 
+      })
+    } catch (error: any) {
       console.error("Failed to add item to cart", error)
       toast({ 
         title: "Error", 
-        description: "Failed to add item to cart. Please try again.",
+        description: error.message || "Failed to add item to cart. Please try again.",
         variant: "destructive"
       })
     }
@@ -159,11 +200,20 @@ export default function MysteryBoxStore() {
   }
 
   const handleSignOut = async () => {
-    await authService.signOut()
-    setUser(null)
-    setCartItems(0)
-    toast({ title: "Signed Out", description: "You have been signed out successfully." })
-    closeMobileMenu()
+    try {
+      await authService.signOut()
+      setUser(null)
+      setCartItems(0)
+      toast({ title: "Signed Out", description: "You have been signed out successfully." })
+      closeMobileMenu()
+    } catch (error) {
+      console.error("Sign out error:", error)
+      toast({ 
+        title: "Error", 
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   const mysteryBoxes = [
@@ -252,8 +302,14 @@ export default function MysteryBoxStore() {
   const filteredBoxes =
     selectedCategory === "all" ? mysteryBoxes : mysteryBoxes.filter((box) => box.category === selectedCategory)
 
+  // ✅ Now actually using the currency formatting function
   const formatPrice = (priceInINR: number, originalValueInINR: number) => {
     return currencyService.formatPriceWithOriginal(priceInINR, originalValueInINR, currentCurrency)
+  }
+
+  const calculateSavings = (price: number, originalValue: number) => {
+    const savings = ((originalValue - price) / originalValue) * 100
+    return Math.round(savings)
   }
 
   return (
@@ -270,7 +326,12 @@ export default function MysteryBoxStore() {
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-4">
-              {!user ? (
+              {userLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-20 h-9 bg-gray-700 animate-pulse rounded"></div>
+                  <div className="w-20 h-9 bg-gray-700 animate-pulse rounded"></div>
+                </div>
+              ) : !user ? (
                 <>
                   <Button
                     asChild
@@ -371,7 +432,7 @@ export default function MysteryBoxStore() {
                 >
                   <Link href="/cart" className="flex items-center relative">
                     <ShoppingCart className="h-4 w-4" />
-                    Cart
+                    <span className="hidden sm:inline ml-1">Cart</span>
                     {cartItems > 0 && (
                       <Badge className="absolute -top-2 -right-2 h-4 w-4 text-xs bg-red-500 flex items-center justify-center">
                         {cartItems > 9 ? '9+' : cartItems}
@@ -421,7 +482,12 @@ export default function MysteryBoxStore() {
 
             {/* Content */}
             <div className="p-6">
-              {!user ? (
+              {userLoading ? (
+                <div className="space-y-4">
+                  <div className="w-full h-12 bg-gray-700 animate-pulse rounded"></div>
+                  <div className="w-full h-12 bg-gray-700 animate-pulse rounded"></div>
+                </div>
+              ) : !user ? (
                 <div className="space-y-4">
                   <Link 
                     href="/auth/signin" 
@@ -555,7 +621,7 @@ export default function MysteryBoxStore() {
 
             <div className="text-center mb-4">
               <span className="text-gray-300 text-sm">
-                Prices shown in Indian Rupee
+                Prices shown in {currentCurrency}
               </span>
             </div>
           </div>
@@ -601,6 +667,8 @@ export default function MysteryBoxStore() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {filteredBoxes.map((box) => {
               const pricing = formatPrice(box.price, box.originalValue)
+              const savingsPercentage = calculateSavings(box.price, box.originalValue)
+              
               return (
                 <Card
                   key={box.id}
@@ -638,10 +706,11 @@ export default function MysteryBoxStore() {
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xl sm:text-2xl font-bold text-white">₹{box.price}</span>
-                        <span className="text-sm text-gray-400 line-through">₹{box.originalValue}</span>
+                        <span className="text-xl sm:text-2xl font-bold text-white">₹{box.price.toLocaleString()}</span>
+                        <span className="text-sm text-gray-400 line-through">₹{box.originalValue.toLocaleString()}</span>
+
                       </div>
-                      <div className="text-sm text-green-400">Save up to 67%</div>
+                      <div className="text-sm text-green-400">Save up to {savingsPercentage}%</div>
                     </div>
                   </CardContent>
                   
@@ -649,6 +718,7 @@ export default function MysteryBoxStore() {
                     <Button
                       onClick={() => addToCart(box)}
                       className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-sm sm:text-base"
+                      disabled={userLoading}
                     >
                       <Gift className="h-4 w-4 mr-2" />
                       Add to Cart

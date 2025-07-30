@@ -22,7 +22,7 @@ export const authService = {
       const token = jwt.sign(
         { userId: user._id },
         process.env.JWT_SECRET!, // ensure this is set in your .env file
-        { expiresIn: "1d" }
+        { expiresIn: "7d" }
       );
 
       return {
@@ -30,18 +30,19 @@ export const authService = {
         user: userData,
         token // ✅ return token
       };
-    } catch (error) {
+    } catch (error:any) {
       console.error("authService signIn error:", error);
       return { success: false, error: "Server error" };
     }
   },
 
   signUp: async (userData: {
-    name: string;
-    email: string;
-    phoneNo: string;
-    password: string;
-  }) => {
+  name: string;
+  email: string;
+  phoneNo: string;
+  password: string;
+}) => {
+  try { // ✅ Add try-catch
     await connectDB();
 
     const existing = await UserModel.findOne({ email: userData.email });
@@ -58,7 +59,12 @@ export const authService = {
     delete userWithoutPassword.password;
 
     return { success: true, user: userWithoutPassword };
-  },
+  } catch (error: any) { // ✅ Add error handling
+    console.error("authService signUp error:", error);
+    return { success: false, error: "Server error" };
+  }
+},
+
 
   signOut: async () => {
     await fetch("/api/signout", {
