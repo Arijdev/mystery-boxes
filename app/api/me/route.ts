@@ -4,13 +4,9 @@ import { getUserFromRequest } from "../../lib/middleware/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    console.log("Starting /api/me request");
-    
     await connectDB();
-    console.log("Database connected");
     
     const user = await getUserFromRequest(req);
-    console.log("User from request:", user ? "found" : "not found");
     
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -18,9 +14,11 @@ export async function GET(req: NextRequest) {
     
     return NextResponse.json(user, { status: 200 });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error("API /me error:", error);
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    return NextResponse.json({ 
+      error: "Authentication failed",
+      details: error.message 
+    }, { status: 401 });
   }
-}
-
+} // ✅ This closing brace was missing
